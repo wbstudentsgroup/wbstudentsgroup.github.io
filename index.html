@@ -2782,15 +2782,22 @@ function renderBookCard(b) {
     let buttonLabel = '';
     let buttonClass = '';
     let buttonAction = '';
+    const bookUnlocked = !isPaid || hasBookAccess(b.id);
 
-    if (hasChapters) {
+    // Locked paid books must go to the shared course/test checkout first.
+    // Never show the chapter/PDF opening action until access is approved.
+    if (isPaid && !bookUnlocked) {
+      buttonLabel = '🔒 Buy Now';
+      buttonClass = 'warning';
+      buttonAction = `buyBook('${String(b.id).replace(/'/g, "\\'")}')`;
+    } else if (hasChapters) {
       buttonLabel = '📚 Open Chapters';
       buttonClass = 'success';
-      buttonAction = `openBookDetails('${b.id}')`;
+      buttonAction = `openBookDetails('${String(b.id).replace(/'/g, "\\'")}')`;
     } else if (hasDirectPdf) {
-      buttonLabel = isPaid ? '🔒 Unlock Book' : '📖 Read Book';
-      buttonClass = isPaid ? 'warning' : 'success';
-      buttonAction = `openBookDetails('${b.id}')`;
+      buttonLabel = '📖 Read Book';
+      buttonClass = 'success';
+      buttonAction = `openBookDetails('${String(b.id).replace(/'/g, "\\'")}')`;
     } else {
       buttonLabel = '⚠️ No PDF Yet';
       buttonClass = 'secondary';
@@ -2819,6 +2826,18 @@ function renderBookCard(b) {
         </div>
       </div>
     `;
+}
+
+function buyBook(bookId) {
+  if (!currentUser) {
+    showToast('Login required to purchase this book');
+    return openLogin();
+  }
+  const book = booksData.find(item => String(item.id) === String(bookId));
+  if (!book) return showToast('Book not found');
+  if (!isPaidItem(book) || hasBookAccess(book.id)) return openBookDetails(book.id);
+  pendingBookId = book.id;
+  return openCheckout(book.id, book.title || 'Premium Book', 'book', getDirectBookPdfUrl(book), book);
 }
 
 function renderBooks() {
